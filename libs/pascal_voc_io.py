@@ -77,9 +77,12 @@ class PascalVocWriter:
         segmented.text = '0'
         return top
 
-    def addBndBox(self, xmin, ymin, xmax, ymax, name, difficult):
+    def addBndBox(self, xmin, ymin, xmax, ymax, name, desc, difficult):
         bndbox = {'xmin': xmin, 'ymin': ymin, 'xmax': xmax, 'ymax': ymax}
         bndbox['name'] = name
+        ##### MY CODE
+        bndbox['desc'] = desc
+        ##### END CODE
         bndbox['difficult'] = difficult
         self.boxlist.append(bndbox)
 
@@ -88,6 +91,10 @@ class PascalVocWriter:
             object_item = SubElement(top, 'object')
             name = SubElement(object_item, 'name')
             name.text = ustr(each_object['name'])
+            ##### MY CODE
+            desc = SubElement(object_item, 'desc')
+            desc.text = ustr(each_object['desc'])
+            ##### END CODE
             pose = SubElement(object_item, 'pose')
             pose.text = "Unspecified"
             truncated = SubElement(object_item, 'truncated')
@@ -140,13 +147,13 @@ class PascalVocReader:
     def getShapes(self):
         return self.shapes
 
-    def addShape(self, label, bndbox, difficult):
+    def addShape(self, label, desc, bndbox, difficult):
         xmin = int(float(bndbox.find('xmin').text))
         ymin = int(float(bndbox.find('ymin').text))
         xmax = int(float(bndbox.find('xmax').text))
         ymax = int(float(bndbox.find('ymax').text))
         points = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
-        self.shapes.append((label, points, None, None, difficult))
+        self.shapes.append((label, desc, points, None, None, difficult))
 
     def parseXML(self):
         assert self.filepath.endswith(XML_EXT), "Unsupport file format"
@@ -163,9 +170,10 @@ class PascalVocReader:
         for object_iter in xmltree.findall('object'):
             bndbox = object_iter.find("bndbox")
             label = object_iter.find('name').text
+            desc = object_iter.find('desc').text
             # Add chris
             difficult = False
             if object_iter.find('difficult') is not None:
                 difficult = bool(int(object_iter.find('difficult').text))
-            self.addShape(label, bndbox, difficult)
+            self.addShape(label, desc, bndbox, difficult)
         return True

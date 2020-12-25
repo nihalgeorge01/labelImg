@@ -38,8 +38,11 @@ class Shape(object):
     point_size = 8
     scale = 1.0
 
-    def __init__(self, label=None, line_color=None, difficult=False, paintLabel=False):
+    def __init__(self, label=None, line_color=None, difficult=False, paintLabel=False, desc=None):
         self.label = label
+        ##### MY CODE
+        self.desc = desc
+        ##### END CODE
         self.points = []
         self.fill = False
         self.selected = False
@@ -125,6 +128,10 @@ class Shape(object):
                     painter.setFont(font)
                     if(self.label == None):
                         self.label = ""
+                    ##### MY CODE
+                    if(self.desc == None):
+                        self.desc = ""
+                    ##### END CODE
                     if(min_y < MIN_Y_LABEL):
                         min_y += MIN_Y_LABEL
                     painter.drawText(min_x, min_y, self.label)
@@ -183,7 +190,7 @@ class Shape(object):
         self._highlightIndex = None
 
     def copy(self):
-        shape = Shape("%s" % self.label)
+        shape = Shape("%s" % self.label, desc="%s" % self.desc)
         shape.points = [p for p in self.points]
         shape.fill = self.fill
         shape.selected = self.selected

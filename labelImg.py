@@ -200,11 +200,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.descList = QListWidget()
         descListContainer = QWidget()
         descListContainer.setLayout(listLayout)
-        self.descList.itemActivated.connect(self.descSelectionChanged)
-        self.descList.itemSelectionChanged.connect(self.descSelectionChanged)
+        self.descList.itemActivated.connect(self.labelSelectionChanged) # intentionally label since it handles canvas objects
+        self.descList.itemSelectionChanged.connect(self.labelSelectionChanged)
         self.descList.itemDoubleClicked.connect(self.editDesc)
         # Connect to itemChanged to detect checkbox changes.
-        self.descList.itemChanged.connect(self.descItemChanged)
+        self.descList.itemChanged.connect(self.labelItemChanged)
         listLayout.addWidget(self.descList)
 
 
@@ -895,7 +895,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.actions.delete.setEnabled(selected)
         self.actions.copy.setEnabled(selected)
-        self.actions.edit.setEnabled(selected)
+        self.actions.editLabelAction.setEnabled(selected)
         self.actions.shapeLineColor.setEnabled(selected)
         self.actions.shapeFillColor.setEnabled(selected)
 
@@ -951,8 +951,8 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadLabels(self, shapes):
         s = []
-        for label, points, line_color, fill_color, difficult in shapes:
-            shape = Shape(label=label)
+        for label, desc, points, line_color, fill_color, difficult in shapes:
+            shape = Shape(label=label, desc=desc)
             for x, y in points:
 
                 # Ensure the labels are within the bounds of the image. If not, fix them.
@@ -1293,10 +1293,6 @@ class MainWindow(QMainWindow, WindowMixin):
             self.canvas.loadPixmap(QPixmap.fromImage(image))
             if self.labelFile:
                 self.loadLabels(self.labelFile.shapes)
-
-                ##### MY CODE
-                self.loadDescs(self.labelFile.shapes)
-                ##### END CODE
 
             self.setClean()
             self.canvas.setEnabled(True)
@@ -1743,10 +1739,6 @@ class MainWindow(QMainWindow, WindowMixin):
         tVocParseReader = PascalVocReader(xmlPath)
         shapes = tVocParseReader.getShapes()
         self.loadLabels(shapes)
-
-        ##### MY CODE
-        self.loadDescs(shapes)
-        ##### MY CODE
 
         self.canvas.verified = tVocParseReader.verified
 
