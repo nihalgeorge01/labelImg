@@ -37,6 +37,11 @@ from libs.stringBundle import StringBundle
 from libs.canvas import Canvas
 from libs.zoomWidget import ZoomWidget
 from libs.labelDialog import LabelDialog
+
+##### MY CODE
+from libs.descDialog import DescDialog
+##### END CODE
+
 from libs.colorDialog import ColorDialog
 from libs.labelFile import LabelFile, LabelFileError, LabelFileFormat
 from libs.toolBar import ToolBar
@@ -95,6 +100,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.mImgList = []
         self.dirname = None
         self.labelHist = []
+
+        ##### MY CODE
+        self.descHist = []
+        ##### END CODE
+
         self.lastOpenDir = None
 
         # Whether we need to save or not.
@@ -111,9 +121,17 @@ class MainWindow(QMainWindow, WindowMixin):
         # Main widgets and related state.
         self.labelDialog = LabelDialog(parent=self, listItem=self.labelHist)
 
+        ##### MY CODE
+        self.descDialog = DescDialog(parent=self, listItem=self.descHist)
+        ##### END CODE
+
         self.itemsToShapes = {}
         self.shapesToItems = {}
         self.prevLabelText = ''
+
+        ##### MY CODE
+        self.prevDescText = ''
+        ##### END CODE
 
         listLayout = QVBoxLayout()
         listLayout.setContentsMargins(0, 0, 0, 0)
@@ -128,6 +146,18 @@ class MainWindow(QMainWindow, WindowMixin):
         useDefaultLabelContainer = QWidget()
         useDefaultLabelContainer.setLayout(useDefaultLabelQHBoxLayout)
 
+        ##### MY CODE
+        # Create a widget for using default description
+        self.useDefaultDescCheckbox = QCheckBox(getStr('useDefaultDesc'))
+        self.useDefaultDescCheckbox.setChecked(False)
+        self.defaultDescTextLine = QLineEdit()
+        useDefaultDescQHBoxLayout = QHBoxLayout()
+        useDefaultDescQHBoxLayout.addWidget(self.useDefaultDescCheckbox)
+        useDefaultDescQHBoxLayout.addWidget(self.defaultDescTextLine)
+        useDefaultDescContainer = QWidget()
+        useDefaultDescContainer.setLayout(useDefaultDescQHBoxLayout)
+        ##### END CODE
+
         # Create a widget for edit and diffc button
         self.diffcButton = QCheckBox(getStr('useDifficult'))
         self.diffcButton.setChecked(False)
@@ -139,6 +169,10 @@ class MainWindow(QMainWindow, WindowMixin):
         listLayout.addWidget(self.editButton)
         listLayout.addWidget(self.diffcButton)
         listLayout.addWidget(useDefaultLabelContainer)
+
+        ##### MY CODE
+        listLayout.addWidget(useDefaultDescContainer)
+        ##### END CODE
 
         # Create and add combobox for showing unique labels in group
         self.comboBox = ComboBox(self)
@@ -160,6 +194,24 @@ class MainWindow(QMainWindow, WindowMixin):
         self.dock = QDockWidget(getStr('boxLabelText'), self)
         self.dock.setObjectName(getStr('labels'))
         self.dock.setWidget(labelListContainer)
+
+        ##### MY CODE
+        # Create and add a widget for showing current label items
+        self.descList = QListWidget()
+        descListContainer = QWidget()
+        descListContainer.setLayout(listLayout)
+        self.descList.itemActivated.connect(self.descSelectionChanged)
+        self.descList.itemSelectionChanged.connect(self.descSelectionChanged)
+        self.descList.itemDoubleClicked.connect(self.editDesc)
+        # Connect to itemChanged to detect checkbox changes.
+        self.descList.itemChanged.connect(self.descItemChanged)
+        listLayout.addWidget(self.descList)
+
+
+        self.dock = QDockWidget(getStr('boxDescText'), self)
+        self.dock.setObjectName(getStr('descs'))
+        self.dock.setWidget(descListContainer)
+        ##### END CODE
 
         self.fileListWidget = QListWidget()
         self.fileListWidget.itemDoubleClicked.connect(self.fileitemDoubleClicked)
@@ -320,10 +372,17 @@ class MainWindow(QMainWindow, WindowMixin):
             self.MANUAL_ZOOM: lambda: 1,
         }
 
-        edit = action(getStr('editLabel'), self.editLabel,
+        editLabelAction = action(getStr('editLabel'), self.editLabel,
                       'Ctrl+E', 'edit', getStr('editLabelDetail'),
                       enabled=False)
-        self.editButton.setDefaultAction(edit)
+
+        ##### MY CODE
+        editDescAction = action(getStr('editDesc'), self.editDesc,
+                      'Ctrl+G', 'edit', getStr('editDescDetail'),
+                      enabled=False)
+        ##### END CODE
+
+        self.editButton.setDefaultAction(editLabelAction)
 
         shapeLineColor = action(getStr('shapeLineColor'), self.chshapeLineColor,
                                 icon='color_line', tip=getStr('shapeLineColorDetail'),
@@ -336,12 +395,34 @@ class MainWindow(QMainWindow, WindowMixin):
         labels.setText(getStr('showHide'))
         labels.setShortcut('Ctrl+Shift+L')
 
+        ##### MY CODE
+        descs = self.dock.toggleViewAction()
+        descs.setText(getStr('showHide'))
+        descs.setShortcut('Ctrl+Shift+G')
+        ##### END CODE
+
+
         # Label list context menu.
         labelMenu = QMenu()
-        addActions(labelMenu, (edit, delete))
+        #addActions(labelMenu, (edit, delete))
+
+        ##### MY CODE
+        addActions(labelMenu, (editLabelAction, delete))
+        ##### END CODE
+
         self.labelList.setContextMenuPolicy(Qt.CustomContextMenu)
         self.labelList.customContextMenuRequested.connect(
             self.popLabelListMenu)
+
+        ##### MY CODE
+        descMenu = QMenu()
+        addActions(descMenu, (editDescAction, delete))
+        self.descList.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.descList.customContextMenuRequested.connect(
+            self.popDescListMenu)
+        ##### END CODE
+
+
 
         # Draw squares/rectangles
         self.drawSquaresOption = QAction('Draw Squares', self)
@@ -352,8 +433,11 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Store actions for further handling.
         self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll, deleteImg = deleteImg,
-                              lineColor=color1, create=create, delete=delete, edit=edit, copy=copy,
-                              createMode=createMode, editMode=editMode, advancedMode=advancedMode,
+                              lineColor=color1, create=create, delete=delete, editLabelAction=editLabelAction,
+                              ##### MY CODE
+                              editDescAction=editDescAction,
+                              ##### END CODE
+                              copy=copy, createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
                               zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
                               fitWindow=fitWindow, fitWidth=fitWidth,
@@ -361,10 +445,17 @@ class MainWindow(QMainWindow, WindowMixin):
                               fileMenuActions=(
                                   open, opendir, save, saveAs, close, resetAll, quit),
                               beginner=(), advanced=(),
-                              editMenu=(edit, copy, delete,
+                              editMenu=(editLabelAction, copy, delete,
+                                        ##### MY CODE
+                                        None, editLabelAction, copy, delete,
+                                        ##### END CODE
                                         None, color1, self.drawSquaresOption),
-                              beginnerContext=(create, edit, copy, delete),
-                              advancedContext=(createMode, editMode, edit, copy,
+                              beginnerContext=(create, editLabelAction,
+                                               ##### MY CODE
+                                               editDescAction,
+                                               ##### END CODE
+                                               copy, delete),
+                              advancedContext=(createMode, editMode, editLabelAction, editDescAction, copy,
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
                                   close, create, createMode, editMode),
@@ -376,7 +467,10 @@ class MainWindow(QMainWindow, WindowMixin):
             view=self.menu('&View'),
             help=self.menu('&Help'),
             recentFiles=QMenu('Open &Recent'),
-            labelList=labelMenu)
+            labelList=labelMenu,
+            ##### MY CODE
+            descList=descMenu)
+            ##### END CODE
 
         # Auto saving : Enable auto saving if pressing next
         self.autoSaving = QAction(getStr('autoSaveMode'), self)
@@ -388,6 +482,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.singleClassMode.setCheckable(True)
         self.singleClassMode.setChecked(settings.get(SETTING_SINGLE_CLASS, False))
         self.lastLabel = None
+
+        ##### MY CODE
+        self.lastDesc = None
+        ##### END CODE
+
         # Add option to enable/disable labels being displayed at the top of bounding boxes
         self.displayLabelOption = QAction(getStr('displayLabel'), self)
         self.displayLabelOption.setShortcut("Ctrl+Shift+P")
@@ -403,6 +502,11 @@ class MainWindow(QMainWindow, WindowMixin):
             self.singleClassMode,
             self.displayLabelOption,
             labels, advancedMode, None,
+
+            ##### MY CODE
+            descs, None,
+            ##### END CODE
+
             hideAll, showAll, None,
             zoomIn, zoomOut, zoomOrg, None,
             fitWindow, fitWidth))
@@ -608,6 +712,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.itemsToShapes.clear()
         self.shapesToItems.clear()
         self.labelList.clear()
+
+        ##### MY CODE
+        self.descList.clear()
+        ##### END CODE
+
         self.filePath = None
         self.imageData = None
         self.labelFile = None
@@ -701,6 +810,11 @@ class MainWindow(QMainWindow, WindowMixin):
     def popLabelListMenu(self, point):
         self.menus.labelList.exec_(self.labelList.mapToGlobal(point))
 
+    ##### MY CODE
+    def popDescListMenu(self, point):
+        self.menus.labelList.exec_(self.labelList.mapToGlobal(point))
+    ##### END CODE
+
     def editLabel(self):
         if not self.canvas.editing():
             return
@@ -713,6 +827,21 @@ class MainWindow(QMainWindow, WindowMixin):
             item.setBackground(generateColorByText(text))
             self.setDirty()
             self.updateComboBox()
+
+    ##### MY CODE
+    def editDesc(self):
+        if not self.canvas.editing():
+            return
+        item = self.currentItem()
+        if not item:
+            return
+        text = self.descDialog.popUp(item.text())
+        if text is not None:
+            item.setText(text)
+            #item.setBackground(generateColorByText(text))
+            self.setDirty()
+            self.updateComboBox()
+    ##### END CODE
 
     # Tzutalin 20160906 : Add file list and dock to move faster
     def fileitemDoubleClicked(self, item=None):
@@ -759,6 +888,11 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.shapesToItems[shape].setSelected(True)
             else:
                 self.labelList.clearSelection()
+
+                ##### MY CODE
+                self.descList.clearSelection()
+                ##### END CODE
+
         self.actions.delete.setEnabled(selected)
         self.actions.copy.setEnabled(selected)
         self.actions.edit.setEnabled(selected)
@@ -778,6 +912,21 @@ class MainWindow(QMainWindow, WindowMixin):
             action.setEnabled(True)
         self.updateComboBox()
 
+    ##### MY CODE
+    def addDesc(self, shape):
+        shape.paintDesc = self.displayLabelOption.isChecked()
+        item = HashableQListWidgetItem(shape.desc)
+        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        item.setCheckState(Qt.Checked)
+        item.setBackground(generateColorByText(shape.label))
+        self.itemsToShapes[item] = shape
+        self.shapesToItems[shape] = item
+        self.descList.addItem(item)
+        for action in self.actions.onShapesPresent:
+            action.setEnabled(True)
+        self.updateComboBox()
+    ##### END CODE
+
     def remLabel(self, shape):
         if shape is None:
             # print('rm empty label')
@@ -787,6 +936,18 @@ class MainWindow(QMainWindow, WindowMixin):
         del self.shapesToItems[shape]
         del self.itemsToShapes[item]
         self.updateComboBox()
+
+    ##### MY CODE
+    def remDesc(self, shape):
+        if shape is None:
+            # print('rm empty desc')
+            return
+        item = self.shapesToItems[shape]
+        self.descList.takeItem(self.descList.row(item))
+        del self.shapesToItems[shape]
+        del self.itemsToShapes[item]
+        self.updateComboBox()
+    ##### END CODE
 
     def loadLabels(self, shapes):
         s = []
@@ -815,6 +976,11 @@ class MainWindow(QMainWindow, WindowMixin):
                 shape.fill_color = generateColorByText(label)
 
             self.addLabel(shape)
+
+            ##### MY CODE
+            self.addDesc(shape)
+            ##### END CODE
+
         self.updateComboBox()
         self.canvas.loadShapes(s)
 
@@ -872,6 +1038,9 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def copySelectedShape(self):
         self.addLabel(self.canvas.copySelectedShape())
+        ##### MY CODE
+        self.addDesc(self.canvas.copySelectedShape())
+        ##### END CODE
         # fix copy and delete
         self.shapeSelectionChanged(True)
 
@@ -943,6 +1112,43 @@ class MainWindow(QMainWindow, WindowMixin):
         else:
             # self.canvas.undoLastLine()
             self.canvas.resetAllLines()
+
+        ##### MY CODE
+        if not self.useDefaultDescCheckbox.isChecked() or not self.defaultDescTextLine.text():
+            if len(self.descHist) > 0:
+                self.descDialog = DescDialog(
+                    parent=self, listItem=self.labelHist)
+
+            # Sync single class mode from PR#106
+            if self.singleClassMode.isChecked() and self.lastDesc:
+                text = self.lastDesc
+            else:
+                text = self.descDialog.popUp(text=self.prevDescText)
+                self.lastDesc = text
+        else:
+            text = self.defaultDescTextLine.text()
+
+        # Add Chris
+        self.diffcButton.setChecked(False)
+        if text is not None:
+            self.prevDescText = text
+            generate_color = generateColorByText(text)
+            shape = self.canvas.setLastLabel(text, generate_color, generate_color)
+            self.addDesc(shape)
+            if self.beginner():  # Switch to edit mode.
+                self.canvas.setEditing(True)
+                self.actions.create.setEnabled(True)
+            else:
+                self.actions.editMode.setEnabled(True)
+            self.setDirty()
+
+            if text not in self.descHist:
+                self.descHist.append(text)
+        else:
+            # self.canvas.undoLastLine()
+            self.canvas.resetAllLines()
+        ##### END CODE
+
 
     def scrollRequest(self, delta, orientation):
         units = - delta / (8 * 15)
@@ -1087,6 +1293,11 @@ class MainWindow(QMainWindow, WindowMixin):
             self.canvas.loadPixmap(QPixmap.fromImage(image))
             if self.labelFile:
                 self.loadLabels(self.labelFile.shapes)
+
+                ##### MY CODE
+                self.loadDescs(self.labelFile.shapes)
+                ##### END CODE
+
             self.setClean()
             self.canvas.setEnabled(True)
             self.adjustScale(initial=True)
@@ -1101,6 +1312,11 @@ class MainWindow(QMainWindow, WindowMixin):
             if self.labelList.count():
                 self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
                 self.labelList.item(self.labelList.count()-1).setSelected(True)
+
+                ##### MY CODE
+                self.descList.setCurrentItem(self.descList.item(self.descList.count() - 1))
+                self.descList.item(self.descList.count() - 1).setSelected(True)
+                ##### END CODE
 
             self.canvas.setFocus(True)
             return True
@@ -1466,6 +1682,11 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def deleteSelectedShape(self):
         self.remLabel(self.canvas.deleteSelected())
+
+        ##### MY CODE
+        self.remDesc(self.canvas.deleteSelected())
+        ##### END CODE
+
         self.setDirty()
         if self.noShapes():
             for action in self.actions.onShapesPresent:
@@ -1490,6 +1711,11 @@ class MainWindow(QMainWindow, WindowMixin):
     def copyShape(self):
         self.canvas.endMove(copy=True)
         self.addLabel(self.canvas.selectedShape)
+
+        ##### MY CODE
+        self.addDesc(self.canvas.selectedShape)
+        ##### END CODE
+
         self.setDirty()
 
     def moveShape(self):
@@ -1517,6 +1743,11 @@ class MainWindow(QMainWindow, WindowMixin):
         tVocParseReader = PascalVocReader(xmlPath)
         shapes = tVocParseReader.getShapes()
         self.loadLabels(shapes)
+
+        ##### MY CODE
+        self.loadDescs(shapes)
+        ##### MY CODE
+
         self.canvas.verified = tVocParseReader.verified
 
     def loadYOLOTXTByFilename(self, txtPath):

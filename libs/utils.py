@@ -61,6 +61,10 @@ def addActions(widget, actions):
 def labelValidator():
     return QRegExpValidator(QRegExp(r'^[^ \t].+'), None)
 
+##### MY CODE
+def descValidator():
+    return QRegExpValidator(QRegExp(r'^[^ \t].+'), None)
+##### END CODE
 
 class struct(object):
 
